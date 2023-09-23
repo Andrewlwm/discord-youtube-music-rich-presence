@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>WinExe</OutputType>
+  </PropertyGroup>
+
+<ItemGroup>
+  <Reference Include="Discord">
+    <HintPath>discord_game_sdk.dll</HintPath>
+  </Reference>
+</ItemGroup>
+
+</Project>
