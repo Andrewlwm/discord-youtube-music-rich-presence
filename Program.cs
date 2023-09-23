@@ -9,9 +9,9 @@ var webSocketOptions = new WebSocketOptions
 {
     KeepAliveInterval = TimeSpan.FromMinutes(1)
 };
-
-var discord = new Discord.Discord(YOUR_APP_ID, (ulong)CreateFlags.NoRequireDiscord);
-var activityManager = discord.GetActivityManager();
+Discord.Discord? discord = null;
+ActivityManager? activityManager = null;
+InitDiscord();
 
 app.UseWebSockets(webSocketOptions);
 
@@ -22,7 +22,14 @@ app.Use(async (context, next) =>
         if (context.WebSockets.IsWebSocketRequest)
         {
             using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-            await UpdateRichPresence(webSocket);
+            try
+            {
+                await UpdateRichPresence(webSocket);
+            }
+            catch (ResultException)
+            {
+                InitDiscord();
+            }
         }
         else
         {
@@ -35,7 +42,7 @@ app.Use(async (context, next) =>
     }
 });
 
-app.Run("http://0.0.0.0:12770");
+app.Run("http://localhost:12770");
 
 
 async Task UpdateRichPresence(WebSocket webSocket)
@@ -78,14 +85,19 @@ async Task UpdateRichPresence(WebSocket webSocket)
             },
         };
 
-        activityManager.UpdateActivity(activity, (result) => { });
-        discord.RunCallbacks();
-
-        // Console.WriteLine($"Payload: {JsonSerializer.Serialize(song)}");
+        activityManager?.UpdateActivity(activity, (result) => { });
+        discord?.RunCallbacks();
     }
 
     await webSocket.CloseAsync(
         receiveResult.CloseStatus.Value,
         receiveResult.CloseStatusDescription,
         CancellationToken.None);
+}
+
+
+void InitDiscord()
+{
+    discord = new Discord.Discord(YOUR_APP_ID, (ulong)CreateFlags.NoRequireDiscord);
+    activityManager = discord.GetActivityManager();
 }
