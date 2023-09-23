@@ -10,7 +10,7 @@ var webSocketOptions = new WebSocketOptions
     KeepAliveInterval = TimeSpan.FromMinutes(1)
 };
 
-var discord = new Discord.Discord(YOUR_DISCORD_ID, (ulong)CreateFlags.NoRequireDiscord);
+var discord = new Discord.Discord(YOUR_APP_ID, (ulong)CreateFlags.NoRequireDiscord);
 var activityManager = discord.GetActivityManager();
 
 app.UseWebSockets(webSocketOptions);
@@ -35,7 +35,7 @@ app.Use(async (context, next) =>
     }
 });
 
-app.Run("http://localhost:12770");
+app.Run("http://0.0.0.0:12770");
 
 
 async Task UpdateRichPresence(WebSocket webSocket)
