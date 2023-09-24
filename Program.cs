@@ -1,18 +1,20 @@
 using System.Net.WebSockets;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Unicode;
 using Discord;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
-var webSocketOptions = new WebSocketOptions
-{
-    KeepAliveInterval = TimeSpan.FromMinutes(1)
-};
 Discord.Discord? discord = null;
 ActivityManager? activityManager = null;
 InitDiscord();
 
+var webSocketOptions = new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromMinutes(1)
+};
 app.UseWebSockets(webSocketOptions);
 
 app.Use(async (context, next) =>
@@ -24,7 +26,7 @@ app.Use(async (context, next) =>
             using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
             try
             {
-                await UpdateRichPresence(webSocket);
+                await UpdateRichPresence(webSocket, context.RequestAborted);
             }
             catch (ResultException)
             {
@@ -45,23 +47,24 @@ app.Use(async (context, next) =>
 app.Run("http://localhost:12770");
 
 
-async Task UpdateRichPresence(WebSocket webSocket)
+async Task UpdateRichPresence(WebSocket webSocket, CancellationToken ct)
 {
-    var buffer = new byte[1024 * 4];
+    var buffer = new byte[512];
     var receiveResult = await webSocket.ReceiveAsync(
-        new ArraySegment<byte>(buffer), CancellationToken.None);
+        new ArraySegment<byte>(buffer), ct);
 
     while (!receiveResult.CloseStatus.HasValue)
     {
         receiveResult = await webSocket.ReceiveAsync(
-                        new ArraySegment<byte>(buffer), CancellationToken.None);
+                        new ArraySegment<byte>(buffer), ct);
 
         Song? song = null;
         try
         {
             song = JsonSerializer.Deserialize<Song>(buffer.AsSpan(0, receiveResult.Count), new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
             });
         }
         catch { }
@@ -74,25 +77,28 @@ async Task UpdateRichPresence(WebSocket webSocket)
         {
             Type = ActivityType.Listening,
             State = $"{string.Join(", ", song.Artists)}{album}",
-            Details = song.Title,
+            Details = song.Title.PadRight(2, ' '),
             Timestamps = new ActivityTimestamps
             {
                 End = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + (int)song.Duration - (int)song.CurrentTime
             },
             Assets = new ActivityAssets
             {
-                LargeImage = song.Thumbnail,
+                LargeImage = song.Thumbnail ?? "fillerThumbnail",
             },
         };
 
-        activityManager?.UpdateActivity(activity, (result) => { });
+        activityManager?.UpdateActivity(activity, (_) => { });
         discord?.RunCallbacks();
     }
 
     await webSocket.CloseAsync(
         receiveResult.CloseStatus.Value,
         receiveResult.CloseStatusDescription,
-        CancellationToken.None);
+        ct);
+
+    activityManager?.ClearActivity((_) => { });
+    discord?.RunCallbacks();
 }
 
 
