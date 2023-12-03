@@ -2,20 +2,16 @@ using System.Net.WebSockets;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
-using Discord;
+using DiscordRPC;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
-Discord.Discord? discord = null;
-ActivityManager? activityManager = null;
-InitDiscord();
+var client = new DiscordRpcClient(builder.Configuration["DiscordAppId"]);
 
-var webSocketOptions = new WebSocketOptions
-{
-    KeepAliveInterval = TimeSpan.FromMinutes(1)
-};
-app.UseWebSockets(webSocketOptions);
+client.Initialize();
+
+app.UseWebSockets();
 
 app.Use(async (context, next) =>
 {
@@ -28,9 +24,8 @@ app.Use(async (context, next) =>
             {
                 await UpdateRichPresence(webSocket, context.RequestAborted);
             }
-            catch (ResultException)
+            catch
             {
-                InitDiscord();
             }
         }
         else
@@ -73,23 +68,29 @@ async Task UpdateRichPresence(WebSocket webSocket, CancellationToken ct)
 
         var album = !string.IsNullOrEmpty(song.Album) ? (" on " + song.Album) : "";
 
-        var activity = new Activity
+        var presence = new RichPresence
         {
-            Type = ActivityType.Listening,
             State = $"{string.Join(", ", song.Artists)}{album}",
             Details = song.Title.PadRight(2, ' '),
-            Timestamps = new ActivityTimestamps
+            Timestamps = new Timestamps
             {
-                End = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + (int)song.Duration - (int)song.CurrentTime
+                End = DateTime.UtcNow.AddSeconds((int)song.Duration - (int)song.CurrentTime)
             },
-            Assets = new ActivityAssets
+            Assets = new Assets
             {
-                LargeImage = song.Thumbnail ?? "fillerThumbnail",
+                LargeImageKey = song.Thumbnail ?? "fillerThumbnail",
             },
+            Buttons =
+                [
+                    new Button
+                    {
+                        Label = "Listen",
+                        Url = $"https://music.youtube.com/watch?v={song.Url}"
+                    }
+                ]
         };
 
-        activityManager?.UpdateActivity(activity, (_) => { });
-        discord?.RunCallbacks();
+        client.SetPresence(presence);
     }
 
     await webSocket.CloseAsync(
@@ -97,13 +98,5 @@ async Task UpdateRichPresence(WebSocket webSocket, CancellationToken ct)
         receiveResult.CloseStatusDescription,
         ct);
 
-    activityManager?.ClearActivity((_) => { });
-    discord?.RunCallbacks();
-}
-
-
-void InitDiscord()
-{
-    discord = new Discord.Discord(YOUR_APP_ID, (ulong)CreateFlags.NoRequireDiscord);
-    activityManager = discord.GetActivityManager();
+    client.ClearPresence();
 }

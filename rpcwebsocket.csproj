@@ -5,12 +5,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OutputType>WinExe</OutputType>
+    <PublishRelease>true</PublishRelease>
   </PropertyGroup>
 
 <ItemGroup>
-  <Reference Include="Discord">
-    <HintPath>discord_game_sdk.dll</HintPath>
-  </Reference>
+  <PackageReference Include="DiscordRichPresence" Version="1.2.1.24" />
 </ItemGroup>
 
 </Project>

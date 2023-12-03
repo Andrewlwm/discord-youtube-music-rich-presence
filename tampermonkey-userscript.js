@@ -71,6 +71,7 @@ const onStateChange = () => {
       album,
       artists,
       thumbnail,
+      url: player.getVideoData().video_id,
     });
 
     if (connection?.OPEN) {
