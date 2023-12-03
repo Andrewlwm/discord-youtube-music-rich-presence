@@ -60,7 +60,8 @@ const onStateChange = () => {
 
     if (!artists.length) {
       artists.push(
-        document.querySelector(".content-info-wrapper .subtitle span").innerText
+        document.querySelector(".content-info-wrapper .subtitle span")
+          ?.innerText
       );
     }
     const payload = JSON.stringify({
