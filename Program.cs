@@ -15,7 +15,7 @@ app.UseWebSockets();
 
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path == "/ws")
+    if (context.Request.Path == "/discord-ytm-bridge")
     {
         if (context.WebSockets.IsWebSocketRequest)
         {
@@ -26,6 +26,7 @@ app.Use(async (context, next) =>
             }
             catch
             {
+                client.ClearPresence();
             }
         }
         else
@@ -78,7 +79,7 @@ async Task UpdateRichPresence(WebSocket webSocket, CancellationToken ct)
             },
             Assets = new Assets
             {
-                LargeImageKey = song.Thumbnail ?? "fillerThumbnail",
+                LargeImageKey = song.Thumbnail,
             },
             Buttons =
                 [
@@ -97,6 +98,5 @@ async Task UpdateRichPresence(WebSocket webSocket, CancellationToken ct)
         receiveResult.CloseStatus.Value,
         receiveResult.CloseStatusDescription,
         ct);
-
     client.ClearPresence();
 }

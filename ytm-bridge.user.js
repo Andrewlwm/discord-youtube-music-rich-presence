@@ -9,24 +9,46 @@
 // @grant        none
 // ==/UserScript==
 
-const WEB_SOCKET_URL = "ws://localhost:12770/ws";
+const WEB_SOCKET_URL = "ws://localhost:12770/discord-ytm-bridge";
 let player;
-let connection;
+let socket;
+let retryCount = 0;
+let retryResetTimeout;
 
 const sizeComparer = (a, b) => (a.size > b.size ? -1 : b.size > a.size ? 1 : 0);
+const resetRetryCount = () => {
+  retryCount = 0;
+  if (retryResetTimeout) {
+    clearTimeout(retryResetTimeout);
+    retryResetTimeout = null;
+    retryConnection();
+  }
+};
+const retryConnection = () => {
+  if (retryCount >= 5) {
+    if (!retryResetTimeout) {
+      retryResetTimeout = setTimeout(resetRetryCount.bind(this), 180 * 1000);
+      console.log("[Discord Bridge] Will retry connecting in 180s");
+    }
+    return;
+  }
+  setTimeout(initConnection.bind(this), 30 * 1000);
+  console.log(
+    "[Discord Bridge] Will retry connecting in 30s, retries left: ",
+    5 - ++retryCount
+  );
+};
+const onSocketConnected = () => {
+  console.log(
+    `[Discord Bridge] Connection with ${WEB_SOCKET_URL} established.`
+  );
+  resetRetryCount();
+};
 
 const initConnection = () => {
-  connection = new WebSocket(WEB_SOCKET_URL);
-  connection.onopen = () =>
-    console.log(`Connection with ${WEB_SOCKET_URL} established.`);
-
-  connection.onerror = (error) => {
-    console.log(`Error trying to connect to ${WEB_SOCKET_URL}: ${error}`);
-    setTimeout(() => initConnection(), 500);
-  };
-
-  connection.onmessage = () => {};
-  connection.onclose = () => setTimeout(() => initConnection(), 500);
+  socket = new WebSocket(WEB_SOCKET_URL);
+  socket.onopen = onSocketConnected;
+  socket.onclose = retryConnection;
 };
 
 const onStateChange = () => {
@@ -64,6 +86,7 @@ const onStateChange = () => {
           ?.innerText
       );
     }
+
     const payload = JSON.stringify({
       duration: player.getDuration(),
       currentTime: player.getCurrentTime(),
@@ -74,11 +97,11 @@ const onStateChange = () => {
       url: player.getVideoData().video_id,
     });
 
-    if (connection?.OPEN) {
-      connection?.send(payload);
+    if (socket?.readyState === socket?.OPEN) {
+      socket?.send(payload);
     }
   } catch {
-    setTimeout(() => onStateChange(), 500);
+    setTimeout(onStateChange.bind(this), 1000);
   }
 };
 
